@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Produto {
+  id_produto String         @id @unique @default(cuid())
+  nome       String
+  preco      Float
+  quantidade Int
+  custo      Float
+  estoque    Int
+  descricao  String?
+  isOnline   Boolean        @default(true)
+  vendas     VendaProduto[]
+}
+
+model Venda {
+  id_venda       Int            @id @default(autoincrement())
+  id_funcionario String
+  data           DateTime       @default(now())
+  total          Float
+  funcionario    Funcionario    @relation(fields: [id_funcionario], references: [id_funcionario])
+  caixaId_caixa  String?
+  caixa          Caixa?         @relation(fields: [caixaId_caixa], references: [id_caixa])
+  produtos       VendaProduto[]
+  nome_cliente   String?        @default("ANÔNIMO")
+}
+
+model VendaProduto {
+  id_vendaProduto Int     @id @default(autoincrement())
+  id_venda        Int
+  id_produto      String
+  quantidade      Int
+  venda           Venda   @relation(fields: [id_venda], references: [id_venda])
+  produto         Produto @relation(fields: [id_produto], references: [id_produto])
+}
+
+model Funcionario {
+  id_funcionario String  @id @unique @default(cuid())
+  nome           String
+  cargo          String  @default("Administrador")
+  senha          String
+  vendas         Venda[]
+}
+
+model Caixa {
+  id_caixa        String    @id @unique @default(cuid())
+  saldo           Float
+  vendas          Venda[]
+  status          Boolean   @default(true)
+  data_abertura   DateTime  @default(now())
+  data_fechamento DateTime?
+}
