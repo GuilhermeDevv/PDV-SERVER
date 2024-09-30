@@ -5,7 +5,13 @@ import { ICreateCaixaDTO, IUpdateCaixaDTO } from "../../dtos/CaixaDTO";
 
 export class PrismaRepository implements ICaixaRepository {
   async create(data: ICreateCaixaDTO) {
-    return await prisma.caixa.create({ data });
+    return await prisma.caixa.create({
+      data: {
+        saldo: 0,
+        saldo_inicial: data.saldo,
+        saldo_final: data.saldo,
+      },
+    });
   }
 
   async findByID(id: string) {
@@ -20,6 +26,9 @@ export class PrismaRepository implements ICaixaRepository {
     return await prisma.caixa.findMany({
       orderBy: {
         data_abertura: "desc",
+      },
+      include: {
+        vendas: true,
       },
     });
   }

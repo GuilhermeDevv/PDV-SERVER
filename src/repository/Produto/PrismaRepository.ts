@@ -8,6 +8,7 @@ import {
   IProdutoReactSelect,
   IUpdateProdutoDTO,
 } from "../../dtos/ProdutoDTO";
+import { formatCurrency } from "../../utils/formatCurrencyBR";
 
 export class PrismaRepository {
   async create(data: ICreateProdutoDTO) {
@@ -32,11 +33,11 @@ export class PrismaRepository {
     const produtosFormatted = produtos.map((produto) => {
       let cor;
       const porcentagemEstoque =
-        produto.quantidade === 0
+        produto.quantidade <= 0
           ? 0
           : (produto.estoque / produto.quantidade) * 100;
 
-      if (porcentagemEstoque === 0 || porcentagemEstoque < 10) {
+      if (porcentagemEstoque <= 0 || porcentagemEstoque < 10) {
         cor = "#b81d13";
       } else if (porcentagemEstoque <= 50) {
         cor = "#efb700";
@@ -59,11 +60,15 @@ export class PrismaRepository {
     const produtosParaReposicao = produtos.map((produto) => {
       let cor;
       const porcentagemEstoque =
-        produto.quantidade === 0
+        produto.quantidade <= 0
           ? 0
           : (produto.estoque / produto.quantidade) * 100;
 
-      if (porcentagemEstoque === 0 || porcentagemEstoque < 10) {
+      if (
+        produto.quantidade <= 0 ||
+        porcentagemEstoque <= 0 ||
+        porcentagemEstoque < 10
+      ) {
         cor = "#b81d13";
       } else if (porcentagemEstoque <= 50) {
         cor = "#efb700";
@@ -90,7 +95,7 @@ export class PrismaRepository {
     const produtosFormatted = produtos.map((produto) => {
       return {
         value: produto.id_produto,
-        label: produto.nome,
+        label: `${produto.nome} - ${formatCurrency(produto.preco.toString())}`,
         price: produto.preco,
       } as IProdutoReactSelect;
     });

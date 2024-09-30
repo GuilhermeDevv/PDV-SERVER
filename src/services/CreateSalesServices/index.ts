@@ -5,7 +5,6 @@ export class CreateSaleServices {
   constructor(private repository: ISaleRepository) {}
   async execute(data: any) {
     const schema = z.object({
-      id_funcionario: z.string(),
       id_produtos: z.array(z.string()),
       nome_cliente: z.string().optional(),
       total: z.string(),

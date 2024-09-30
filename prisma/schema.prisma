@@ -50,7 +50,9 @@ model Funcionario {
 
 model Caixa {
   id_caixa        String    @id @unique @default(cuid())
-  saldo           Float
+  saldo_final     Float     @default(0)
+  saldo_inicial   Float     @default(0)
+  saldo           Float     @default(0)
   vendas          Venda[]
   status          Boolean   @default(true)
   data_abertura   DateTime  @default(now())

@@ -37,6 +37,7 @@ export class UpdateCaixaServices {
       status: false,
       data_fechamento: new Date(),
       saldo,
+      saldo_final: saldo,
     });
 
     if (data) {

@@ -6,9 +6,11 @@ class SaleController {
   async create(req: Request, res: Response) {
     const repository = new PrismaRepository();
     const createSaleServices = new CreateSaleServices(repository);
-    const { message, error, statusCode } = await createSaleServices.execute(
-      req.body
-    );
+    console.log(req);
+    const { message, error, statusCode } = await createSaleServices.execute({
+      ...req.body,
+      id_funcionario: (req as unknown as any).user.userId,
+    });
 
     res.status(statusCode).json({ message, error });
   }

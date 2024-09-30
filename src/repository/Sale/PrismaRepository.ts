@@ -27,7 +27,6 @@ export class PrismaRepository implements ISaleRepository {
         throw new Error(`Produto com ID ${id_produto} não encontrado.`);
       }
 
-      // Removida a verificação de estoque insuficiente
     }
 
     const venda = await prisma.venda.create({
@@ -77,10 +76,22 @@ export class PrismaRepository implements ISaleRepository {
             produto: true,
           },
         },
+        funcionario: {
+          select: {
+            nome: true,
+          },
+        },
       },
     });
 
-    return data;
+    const restructuredData = data.map((venda) => ({
+      ...venda,
+      nome_funcionario: venda.funcionario.nome,
+      nome_cliente: venda.nome_cliente || "SEM IDENTIFICAÇÃO",
+      funcionario: undefined,
+    }));
+
+    return restructuredData;
   }
 
   async findByID(id_caixa: string) {
