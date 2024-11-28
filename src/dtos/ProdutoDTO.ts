@@ -9,6 +9,10 @@ export interface ICreateProdutoDTO {
   estoque: number;
   descricao?: string;
   isOnline: boolean;
+  createdAt: Date;
+  fornecedor: string;
+  categoriaId: number;
+  url: string;
 }
 
 export interface IUpdateProdutoDTO extends Partial<Produto> {}

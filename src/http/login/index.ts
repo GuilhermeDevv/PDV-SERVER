@@ -5,6 +5,6 @@ import LoginController from "../controllers/loginController";
 const router = Router();
 
 router.post("/", LoginController.login);
-router.get("/",LoginController.auth);
+router.get("/", LoginController.auth);
 
 export { router as loginRouter };

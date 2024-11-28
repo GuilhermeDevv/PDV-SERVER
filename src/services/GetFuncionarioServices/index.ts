@@ -5,7 +5,6 @@ export class GetFuncionarioServices {
   constructor(private repository: ILoginRepository) {}
 
   async execute(user: any) {
-    console.log(user);
     const id = user.userId;
     if (!id) {
       return {

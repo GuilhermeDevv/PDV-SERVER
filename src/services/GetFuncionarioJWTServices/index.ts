@@ -1,5 +1,4 @@
 import { SECRET_KEY } from "../../server";
-import { any, unknown, z } from "zod";
 import { IFuncionario } from "../../dtos/IFuncionario";
 import { ILoginRepository } from "../../repository/Login/ILoginRepository";
 import jwt from "jsonwebtoken";
@@ -17,7 +16,7 @@ export class GetFuncionarioJWTServices {
       senha: password,
     } as unknown as IFuncionario);
 
-    if (!data) {
+    if (!data.id_funcionario) {
       return {
         error: true,
         message: "Funcionário não encontrado",
@@ -26,7 +25,7 @@ export class GetFuncionarioJWTServices {
       };
     }
 
-    if (data) {
+    if (data.id_funcionario) {
       const token = jwt.sign({ userId: data.id_funcionario }, SECRET_KEY, {
         expiresIn: "11h",
       });

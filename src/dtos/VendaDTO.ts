@@ -7,6 +7,7 @@ export interface ICreateVendaDTO {
   id_caixa: string;
   id_produtos: string[];
   nome_cliente?: string;
+  valores: Record<string, number>;
 }
 export interface IUpdateVendaDTO extends Partial<Venda> {}
 export interface IDeleteVendaDTO {

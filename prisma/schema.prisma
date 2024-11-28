@@ -1,3 +1,92 @@
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+// }
+
+// model Produto {
+//   id_produto String         @id @unique @default(cuid())
+//   nome       String
+//   desconto   Float          @default(0)
+//   preco      Float
+//   quantidade Int
+//   custo      Float
+//   estoque    Int
+//   descricao  String?
+//   isOnline   Boolean        @default(true)
+//   vendas     VendaProduto[]
+//   createdAt  DateTime       @default(now())
+// }
+
+// model Venda {
+//   id_venda       Int            @id @default(autoincrement())
+//   id_funcionario String
+//   data           DateTime       @default(now())
+//   total          Float
+//   funcionario    Funcionario    @relation(fields: [id_funcionario], references: [id_funcionario])
+//   caixaId_caixa  String?
+//   caixa          Caixa?         @relation(fields: [caixaId_caixa], references: [id_caixa])
+//   produtos       VendaProduto[]
+//   nome_cliente   String?        @default("ANÔNIMO")
+//   id_cliente     String?
+//   cliente        Cliente?       @relation(fields: [id_cliente], references: [id_cliente])
+//   createdAt      DateTime       @default(now())
+// }
+
+// model VendaProduto {
+//   id_vendaProduto Int      @id @default(autoincrement())
+//   id_venda        Int
+//   id_produto      String
+//   quantidade      Int
+//   valor_venda     Float    @default(0.0)
+//   venda           Venda    @relation(fields: [id_venda], references: [id_venda])
+//   produto         Produto  @relation(fields: [id_produto], references: [id_produto])
+//   createdAt       DateTime @default(now())
+// }
+
+// model Funcionario {
+//   id_funcionario String   @id @unique @default(cuid())
+//   nome           String
+//   senha          String
+//   vendas         Venda[]
+//   cargoId        Int      @default(1)
+//   cargo          Cargo    @relation(fields: [cargoId], references: [id_cargo])
+//   createdAt      DateTime @default(now())
+// }
+
+// model Caixa {
+//   id_caixa        String    @id @unique @default(cuid())
+//   saldo_final     Float     @default(0)
+//   saldo_inicial   Float     @default(0)
+//   saldo           Float     @default(0)
+//   vendas          Venda[]
+//   status          Boolean   @default(true)
+//   data_abertura   DateTime  @default(now())
+//   data_fechamento DateTime?
+//   createdAt       DateTime  @default(now())
+// }
+
+// model Cliente {
+//   id_cliente    String   @id @unique @default(cuid())
+//   nome          String
+//   endereco      String?
+//   observacao    String?
+//   valor_debito  Float    @default(0)
+//   credito_conta Float    @default(0)
+//   vendas        Venda[]
+//   createdAt     DateTime @default(now())
+// }
+
+// model Cargo {
+//   id_cargo     Int           @id @default(autoincrement())
+//   nome         String        @unique
+//   nivel_acesso String
+//   funcionarios Funcionario[]
+//   createdAt    DateTime      @default(now())
+// }
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,15 +97,21 @@ datasource db {
 }
 
 model Produto {
-  id_produto String         @id @unique @default(cuid())
-  nome       String
-  preco      Float
-  quantidade Int
-  custo      Float
-  estoque    Int
-  descricao  String?
-  isOnline   Boolean        @default(true)
-  vendas     VendaProduto[]
+  id_produto  String           @id @unique @default(cuid())
+  nome        String
+  desconto    Float            @default(0)
+  preco       Float
+  quantidade  Int
+  custo       Float
+  estoque     Int
+  descricao   String?
+  isOnline    Boolean          @default(true)
+  vendas      VendaProduto[]
+  createdAt   DateTime         @default(now())
+  fornecedor  String?          @default("SEM INFORMAÇÃO")
+  categoriaId Int
+  categoria   CategoriaProduto @relation(fields: [categoriaId], references: [id_categoria])
+  url         String
 }
 
 model Venda {
@@ -29,23 +124,30 @@ model Venda {
   caixa          Caixa?         @relation(fields: [caixaId_caixa], references: [id_caixa])
   produtos       VendaProduto[]
   nome_cliente   String?        @default("ANÔNIMO")
+  id_cliente     String?
+  cliente        Cliente?       @relation(fields: [id_cliente], references: [id_cliente])
+  createdAt      DateTime       @default(now())
 }
 
 model VendaProduto {
-  id_vendaProduto Int     @id @default(autoincrement())
+  id_vendaProduto Int      @id @default(autoincrement())
   id_venda        Int
   id_produto      String
   quantidade      Int
-  venda           Venda   @relation(fields: [id_venda], references: [id_venda])
-  produto         Produto @relation(fields: [id_produto], references: [id_produto])
+  valor_venda     Float    @default(0.0)
+  venda           Venda    @relation(fields: [id_venda], references: [id_venda])
+  produto         Produto  @relation(fields: [id_produto], references: [id_produto])
+  createdAt       DateTime @default(now())
 }
 
 model Funcionario {
-  id_funcionario String  @id @unique @default(cuid())
+  id_funcionario String   @id @unique @default(cuid())
   nome           String
-  cargo          String  @default("Administrador")
   senha          String
   vendas         Venda[]
+  cargoId        Int      @default(1)
+  cargo          Cargo    @relation(fields: [cargoId], references: [id_cargo])
+  createdAt      DateTime @default(now())
 }
 
 model Caixa {
@@ -57,4 +159,33 @@ model Caixa {
   status          Boolean   @default(true)
   data_abertura   DateTime  @default(now())
   data_fechamento DateTime?
+  createdAt       DateTime  @default(now())
+}
+
+model Cliente {
+  id_cliente    String   @id @unique @default(cuid())
+  nome          String
+  endereco      String?
+  observacao    String?
+  valor_debito  Float    @default(0)
+  credito_conta Float    @default(0)
+  vendas        Venda[]
+  createdAt     DateTime @default(now())
+}
+
+model Cargo {
+  id_cargo     Int           @id @default(autoincrement())
+  nome         String        @unique
+  nivel_acesso String
+  funcionarios Funcionario[]
+  createdAt    DateTime      @default(now())
+}
+
+model CategoriaProduto {
+  id_categoria   Int       @id @default(autoincrement())
+  nome           String    @unique
+  produtos       Produto[]
+  createdAt      DateTime  @default(now())
+  iconeCategoria String
+  corCategoria   String
 }

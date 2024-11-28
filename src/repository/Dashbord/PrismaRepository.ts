@@ -1,67 +1,140 @@
 import { prisma } from "../../lib/Prisma";
 
 export class PrismaRepository {
-  async getQuantityInfo() {
-    const vendasQuantity = await prisma.venda.count();
-    const produtosQuantity = await prisma.produto.count();
-    const funcionariosQuantity = await prisma.funcionario.count();
+  // Método para obter informações de quantidade
+  async getQuantityInfo(id: any) {
+    if (!id) {
+      return {
+        error: true,
+        message: "Erro ao buscar informações do funcionário",
+        data: [],
+        statusCode: 500,
+      };
+    }
 
-    const vendasDeHoje = await prisma.venda.findMany({
-      where: {
-        data: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          lte: new Date(new Date().setHours(23, 59, 59, 999)),
-        },
-      },
-      include: {
-        produtos: {
-          include: {
-            produto: true,
-          },
-        },
-      },
+    // Buscar o usuário pelo ID e verificar o nível de acesso
+    const funcionario = await prisma.funcionario.findUnique({
+      where: { id_funcionario: id },
+      include: { cargo: true },
     });
 
+    if (!funcionario) {
+      return {
+        error: true,
+        message: "Funcionário não encontrado",
+        data: null,
+        statusCode: 404,
+      };
+    }
+
+    const nivelAcesso = funcionario.cargo.nivel_acesso;
+
+    // Consultas agregadas para obter contagens e vendas de hoje
+    const [
+      vendasQuantity,
+      produtosQuantity,
+      funcionariosQuantity,
+      vendasDeHoje,
+      vendasQuantityMesPassado,
+      produtosQuantityMesPassado,
+      funcionariosQuantityMesPassado,
+      vendasDeOntem,
+    ] = await Promise.all([
+      prisma.venda.count({
+        where: nivelAcesso === "MINIMO" ? { id_funcionario: id } : {},
+      }),
+      prisma.produto.count(),
+      prisma.funcionario.count(),
+      prisma.venda.findMany({
+        where: {
+          data: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0)),
+            lte: new Date(new Date().setHours(23, 59, 59, 999)),
+          },
+          ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
+        },
+        include: {
+          produtos: {
+            include: {
+              produto: true,
+            },
+          },
+        },
+      }),
+      prisma.venda.count({
+        where: {
+          data: {
+            gte: new Date(new Date().setMonth(new Date().getMonth() - 1, 1)),
+            lte: new Date(new Date().setMonth(new Date().getMonth(), 0)),
+          },
+          ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
+        },
+      }),
+      prisma.produto.count({
+        where: {
+          createdAt: {
+            gte: new Date(new Date().setMonth(new Date().getMonth() - 1, 1)),
+            lte: new Date(new Date().setMonth(new Date().getMonth(), 0)),
+          },
+        },
+      }),
+      prisma.funcionario.count({
+        where: {
+          createdAt: {
+            gte: new Date(new Date().setMonth(new Date().getMonth() - 1, 1)),
+            lte: new Date(new Date().setMonth(new Date().getMonth(), 0)),
+          },
+        },
+      }),
+      prisma.venda.findMany({
+        where: {
+          data: {
+            gte: new Date(
+              new Date(new Date().setDate(new Date().getDate() - 1)).setHours(
+                0,
+                0,
+                0,
+                0
+              )
+            ),
+            lte: new Date(
+              new Date(new Date().setDate(new Date().getDate() - 1)).setHours(
+                23,
+                59,
+                59,
+                999
+              )
+            ),
+          },
+          ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
+        },
+        include: {
+          produtos: {
+            include: {
+              produto: true,
+            },
+          },
+        },
+      }),
+    ]);
+
     const lucroTotalDeHoje = vendasDeHoje.reduce((acc, venda) => {
-      const totalVenda = venda.total;
       const custoProdutos = venda.produtos.reduce((acc, vendaProduto) => {
         return acc + vendaProduto.produto.custo * vendaProduto.quantidade;
       }, 0);
+      const totalVenda = venda.produtos.reduce((total: any, produto: any) => {
+        const valorBase =
+          produto.valor_venda > 0 ? produto.valor_venda : produto.produto.preco;
+        const valorProduto = valorBase * produto.quantidade;
+        const valorComDesconto =
+          produto.produto.desconto > 0 && produto.valor_venda == 0
+            ? valorProduto - valorProduto * (produto.produto.desconto / 100)
+            : valorProduto;
+
+        return valorComDesconto;
+      }, 0);
       return acc + (totalVenda - custoProdutos);
     }, 0);
-
-    const produtos = await prisma.produto.findMany({
-      select: {
-        quantidade: true,
-        estoque: true,
-      },
-    });
-
-    const produtosParaReposicao = produtos.map((produto) => {
-      let cor;
-      const porcentagemEstoque = (produto.estoque / produto.quantidade) * 100;
-
-      if (
-        produto.quantidade <= 0 ||
-        porcentagemEstoque <= 0 ||
-        porcentagemEstoque < 10
-      ) {
-        cor = "vermelha";
-      } else if (porcentagemEstoque <= 50) {
-        cor = "amarela";
-      } else {
-        cor = "verde";
-      }
-
-      return {
-        ...produto,
-        cor,
-      };
-    });
-
-    const produtosParaReposicaoCount = produtosParaReposicao.filter(
-      (produto) => produto.cor === "vermelha"
-    );
 
     function formatCurrency(value: number) {
       return new Intl.NumberFormat("pt-BR", {
@@ -71,44 +144,186 @@ export class PrismaRepository {
     }
 
     const vendasDeHojeEmReais = vendasDeHoje.reduce((acc, venda) => {
-      return acc + venda.total;
+      const totalVenda = venda.produtos.reduce((total: any, produto: any) => {
+        const valorBase =
+          produto.valor_venda > 0 ? produto.valor_venda : produto.produto.preco;
+        const valorProduto = valorBase * produto.quantidade;
+        const valorComDesconto =
+          produto.produto.desconto > 0 && produto.valor_venda == 0
+            ? valorProduto - valorProduto * (produto.produto.desconto / 100)
+            : valorProduto;
+
+        return valorComDesconto;
+      }, 0);
+      return acc + totalVenda;
     }, 0);
+
+    const lucroTotalDeOntem = vendasDeOntem.reduce((acc, venda) => {
+      const custoProdutos = venda.produtos.reduce((acc, vendaProduto) => {
+        return acc + vendaProduto.produto.custo * vendaProduto.quantidade;
+      }, 0);
+      const totalVenda = venda.produtos.reduce((total: any, produto: any) => {
+        const valorBase =
+          produto.valor_venda > 0 ? produto.valor_venda : produto.produto.preco;
+        const valorProduto = valorBase * produto.quantidade;
+        const valorComDesconto =
+          produto.produto.desconto > 0 && produto.valor_venda == 0
+            ? valorProduto - valorProduto * (produto.produto.desconto / 100)
+            : valorProduto;
+
+        return valorComDesconto;
+      }, 0);
+      return acc + (totalVenda - custoProdutos);
+    }, 0);
+
+    const vendasDeOntemEmReais = vendasDeOntem.reduce((acc, venda) => {
+      const totalVenda = venda.produtos.reduce((total: any, produto: any) => {
+        const valorBase =
+          produto.valor_venda > 0 ? produto.valor_venda : produto.produto.preco;
+        const valorProduto = valorBase * produto.quantidade;
+        const valorComDesconto =
+          produto.produto.desconto > 0 && produto.valor_venda == 0
+            ? valorProduto - valorProduto * (produto.produto.desconto / 100)
+            : valorProduto;
+
+        return valorComDesconto;
+      }, 0);
+      return acc + totalVenda;
+    }, 0);
+
+    const calcularVariacao = (atual: number, passado: number) => {
+      if (passado === 0) return atual > 0 ? 100 : 0;
+      return ((atual - passado) / passado) * 100;
+    };
+
+    const getIconInfo = (variacao: number) => {
+      if (variacao > 0) return "ArrowUp";
+      if (variacao < 0) return "ArrowDown";
+      return "ArrowRight"; // Ícone reto
+    };
 
     return [
       {
         icon: "MonetizationOnIcon",
         text: "VENDAS",
         quantity: vendasQuantity,
+        color: "primaryBackground",
+        iconInfo: getIconInfo(
+          calcularVariacao(vendasQuantity, vendasQuantityMesPassado)
+        ),
+        valueInfo: `${calcularVariacao(
+          vendasQuantity,
+          vendasQuantityMesPassado
+        ).toFixed(2)}%`,
+        labelInfo: "Em relação ao mês passado",
+        v1: vendasQuantity,
+        v2: vendasQuantityMesPassado,
       },
       {
         icon: "GroupIcon",
         text: "FUNCIONÁRIOS",
         quantity: funcionariosQuantity,
+        color: "secondaryBackground",
+        iconInfo: getIconInfo(
+          calcularVariacao(funcionariosQuantity, funcionariosQuantityMesPassado)
+        ),
+        valueInfo: `${calcularVariacao(
+          funcionariosQuantity,
+          funcionariosQuantityMesPassado
+        ).toFixed(2)}%`,
+        labelInfo: "Em relação ao mês passado",
+        v1: funcionariosQuantityMesPassado,
+        v2: funcionariosQuantity,
       },
       {
         icon: "ShoppingCartIcon",
         text: "PRODUTOS",
         quantity: produtosQuantity,
+        color: "tertiaryBackground",
+        iconInfo: getIconInfo(
+          calcularVariacao(produtosQuantity, produtosQuantityMesPassado)
+        ),
+        valueInfo: `${calcularVariacao(
+          produtosQuantity,
+          produtosQuantityMesPassado
+        ).toFixed(2)}%`,
+        labelInfo: "Em relação ao mês passado",
+        v1: produtosQuantityMesPassado,
+        v2: produtosQuantity,
       },
       {
         icon: "InventoryIcon",
         text: "PRODUTOS PARA REPOSIÇÃO",
-        quantity: produtosParaReposicaoCount.length,
+        quantity: 0, // Informação genérica
+        color: "quaternaryBackground",
+        iconInfo: "ArrowRight", // Ícone reto
+        valueInfo: "N/A",
+        labelInfo: "Dados não disponíveis",
+        v1: 0,
+        v2: 0,
       },
       {
         icon: "MonetizationOnIcon",
         text: "LUCRO TOTAL DE HOJE",
         quantity: formatCurrency(lucroTotalDeHoje),
+        color: "quinaryBackground",
+        iconInfo: getIconInfo(
+          calcularVariacao(lucroTotalDeHoje, lucroTotalDeOntem)
+        ),
+        valueInfo: `${calcularVariacao(
+          lucroTotalDeHoje,
+          lucroTotalDeOntem
+        ).toFixed(2)}%`,
+        labelInfo: "Em relação a ontem",
+        v1: lucroTotalDeOntem,
+        v2: lucroTotalDeHoje,
       },
       {
         icon: "MonetizationOnIcon",
         text: "VENDAS TOTAL DE HOJE",
         quantity: formatCurrency(vendasDeHojeEmReais),
+        color: "senaryBackground",
+        iconInfo: getIconInfo(
+          calcularVariacao(vendasDeHojeEmReais, vendasDeOntemEmReais)
+        ),
+        valueInfo: `${calcularVariacao(
+          vendasDeHojeEmReais,
+          vendasDeOntemEmReais
+        ).toFixed(2)}%`,
+        labelInfo: "Em relação a ontem",
+        v1: vendasDeOntemEmReais,
+        v2: vendasDeHojeEmReais,
       },
     ];
   }
+  // Método para obter informações de vendas
+  async getSalesValue(id: any) {
+    if (!id) {
+      return {
+        error: true,
+        message: "Erro ao buscar informações do funcionário",
+        data: null,
+        statusCode: 500,
+      };
+    }
 
-  async getSalesValue() {
+    // Buscar o usuário pelo ID e verificar o nível de acesso
+    const funcionario = await prisma.funcionario.findUnique({
+      where: { id_funcionario: id },
+      include: { cargo: true },
+    });
+
+    if (!funcionario) {
+      return {
+        error: true,
+        message: "Funcionário não encontrado",
+        data: null,
+        statusCode: 404,
+      };
+    }
+
+    const nivelAcesso = funcionario.cargo.nivel_acesso;
+
     const dataAtual = new Date();
     const diaSemanaAtual = dataAtual.getDay();
     const inicioSemanaAtual = new Date(dataAtual);
@@ -126,6 +341,14 @@ export class PrismaRepository {
           gte: inicioSemanaAtual,
           lte: dataAtual,
         },
+        ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
+      },
+      include: {
+        produtos: {
+          include: {
+            produto: true,
+          },
+        },
       },
     });
 
@@ -134,6 +357,14 @@ export class PrismaRepository {
         data: {
           gte: inicioSemanaPassada,
           lte: inicioSemanaAtual,
+        },
+        ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
+      },
+      include: {
+        produtos: {
+          include: {
+            produto: true,
+          },
         },
       },
     });
@@ -154,7 +385,20 @@ export class PrismaRepository {
         if (!acc[diaSemana]) {
           acc[diaSemana] = 0;
         }
-        acc[diaSemana] += venda.total;
+        const totalVenda = venda.produtos.reduce((total: any, produto: any) => {
+          const valorBase =
+            produto.valor_venda > 0
+              ? produto.valor_venda
+              : produto.produto.preco;
+          const valorProduto = valorBase * produto.quantidade;
+          const valorComDesconto =
+            produto.produto.desconto > 0 && produto.valor_venda == 0
+              ? valorProduto - valorProduto * (produto.produto.desconto / 100)
+              : valorProduto;
+
+          return valorComDesconto;
+        }, 0);
+        acc[diaSemana] += totalVenda;
         return acc;
       }, {} as Record<string, number>);
     };
@@ -180,8 +424,34 @@ export class PrismaRepository {
 
     return resultado;
   }
+  // Método para obter informações de lucro
+  async getSalesProfit(id: any) {
+    if (!id) {
+      return {
+        error: true,
+        message: "Erro ao buscar informações do funcionário",
+        data: null,
+        statusCode: 500,
+      };
+    }
 
-  async getSalesProfit() {
+    // Buscar o usuário pelo ID e verificar o nível de acesso
+    const funcionario = await prisma.funcionario.findUnique({
+      where: { id_funcionario: id },
+      include: { cargo: true },
+    });
+
+    if (!funcionario) {
+      return {
+        error: true,
+        message: "Funcionário não encontrado",
+        data: null,
+        statusCode: 404,
+      };
+    }
+
+    const nivelAcesso = funcionario.cargo.nivel_acesso;
+
     const dataAtual = new Date();
     const diaSemanaAtual = dataAtual.getDay();
     const inicioSemanaAtual = new Date(dataAtual);
@@ -199,6 +469,14 @@ export class PrismaRepository {
           gte: inicioSemanaAtual,
           lte: dataAtual,
         },
+        ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
+      },
+      include: {
+        produtos: {
+          include: {
+            produto: true,
+          },
+        },
       },
     });
 
@@ -207,6 +485,14 @@ export class PrismaRepository {
         data: {
           gte: inicioSemanaPassada,
           lte: inicioSemanaAtual,
+        },
+        ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
+      },
+      include: {
+        produtos: {
+          include: {
+            produto: true,
+          },
         },
       },
     });
@@ -243,6 +529,7 @@ export class PrismaRepository {
             gte: inicioSemanaAtual,
             lte: dataAtual,
           },
+          ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
         },
       },
       include: {
@@ -258,6 +545,7 @@ export class PrismaRepository {
             gte: inicioSemanaPassada,
             lte: inicioSemanaAtual,
           },
+          ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
         },
       },
       include: {
@@ -312,7 +600,34 @@ export class PrismaRepository {
     return resultado;
   }
 
-  async getSalesCount() {
+  // Método para obter informações de contagem
+  async getSalesCount(id: any) {
+    if (!id) {
+      return {
+        error: true,
+        message: "Erro ao buscar informações do funcionário",
+        data: null,
+        statusCode: 500,
+      };
+    }
+
+    // Buscar o usuário pelo ID e verificar o nível de acesso
+    const funcionario = await prisma.funcionario.findUnique({
+      where: { id_funcionario: id },
+      include: { cargo: true },
+    });
+
+    if (!funcionario) {
+      return {
+        error: true,
+        message: "Funcionário não encontrado",
+        data: null,
+        statusCode: 404,
+      };
+    }
+
+    const nivelAcesso = funcionario.cargo.nivel_acesso;
+
     const dataAtual = new Date();
     const diaSemanaAtual = dataAtual.getDay();
     const inicioSemanaAtual = new Date(dataAtual);
@@ -330,6 +645,7 @@ export class PrismaRepository {
           gte: inicioSemanaAtual,
           lte: dataAtual,
         },
+        ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
       },
     });
 
@@ -339,6 +655,7 @@ export class PrismaRepository {
           gte: inicioSemanaPassada,
           lte: inicioSemanaAtual,
         },
+        ...(nivelAcesso === "MINIMO" && { id_funcionario: id }),
       },
     });
 

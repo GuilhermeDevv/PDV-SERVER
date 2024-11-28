@@ -9,6 +9,7 @@ import {
   IUpdateProdutoDTO,
 } from "../../dtos/ProdutoDTO";
 import { formatCurrency } from "../../utils/formatCurrencyBR";
+import { ICreateCategoriaProdutoDTO } from "../../dtos/CategoriaProdutoDTO";
 
 export class PrismaRepository {
   async create(data: ICreateProdutoDTO) {
@@ -28,7 +29,11 @@ export class PrismaRepository {
     // caso a porcentagem do estoque em relação à quantidade seja menor ou igual a 50%, a cor deve ser amarela
     // caso a porcentagem do estoque em relação à quantidade seja maior que 50%, a cor deve ser verde
 
-    const produtos = await prisma.produto.findMany();
+    const produtos = await prisma.produto.findMany({
+      include: {
+        categoria: true,
+      },
+    });
 
     const produtosFormatted = produtos.map((produto) => {
       let cor;
@@ -93,60 +98,24 @@ export class PrismaRepository {
     const produtos = await prisma.produto.findMany();
 
     const produtosFormatted = produtos.map((produto) => {
+      const price = produto.desconto
+        ? produto.preco * (1 - produto.desconto / 100)
+        : produto.preco;
       return {
         value: produto.id_produto,
-        label: `${produto.nome} - ${formatCurrency(produto.preco.toString())}`,
-        price: produto.preco,
+        label: `${produto.nome} - ${formatCurrency(price.toString())}`,
+        price,
       } as IProdutoReactSelect;
     });
 
     return produtosFormatted;
   }
 
-  async importXLS() {
-    const filePath = path.join(__dirname, "..", "..", "dist", "produto1.xls");
+  async createCategoriaProduto(data: ICreateCategoriaProdutoDTO) {
+    return await prisma.categoriaProduto.create({ data });
+  }
 
-    const readExcelFile = (filePath: string) => {
-      const workbook = xlsx.readFile(filePath);
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const data = xlsx.utils.sheet_to_json(sheet);
-
-      return data.map((row: any) => ({
-        custo: row["Custo Unitário"],
-        estoque: row["Estoque Atual"],
-        id_produto: row["Código"],
-        nome: row["Nome"],
-        preco: row["Preço"],
-        quantidade: row["Disponível"],
-      }));
-    };
-
-    // Ler o arquivo e obter os dados
-    const data = readExcelFile(filePath);
-    console.log(data);
-
-    // Salvar os dados no banco de dados
-    for (const row of data) {
-      const existingProduct = await prisma.produto.findUnique({
-        where: { id_produto: row.id_produto.toString() },
-      });
-
-      if (!existingProduct) {
-        // Criar um novo produto
-        await prisma.produto.create({
-          data: {
-            nome: row.nome,
-            id_produto: row.id_produto.toString(),
-            preco: row.preco,
-            estoque: row.estoque ?? 0,
-            custo: row.custo,
-            quantidade: row.quantidade ?? 0,
-          },
-        });
-      }
-    }
-
-    console.log("Dados salvos com sucesso!");
+  async findAllCategorias() {
+    return await prisma.categoriaProduto.findMany();
   }
 }

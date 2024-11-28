@@ -8,9 +8,25 @@ export class PrismaRepository {
         nome,
         senha,
       },
+      include: {
+        cargo: true,
+        vendas: {
+          include: {
+            produtos: true,
+          },
+        },
+      },
     });
 
-    return data;
+    const dataObj = {
+      id_funcionario: data?.id_funcionario!,
+      nome: data?.nome!,
+      cargo: data?.cargo?.nome!,
+      infoCargo: data?.cargo!,
+      senha: data?.senha!,
+      vendas: data?.vendas!,
+    };
+    return dataObj;
   }
 
   async user(userId: any) {
@@ -18,8 +34,29 @@ export class PrismaRepository {
       where: {
         id_funcionario: userId,
       },
+      include: {
+        cargo: true,
+      },
     });
+    const dataObj = {
+      id_funcionario: data?.id_funcionario!,
+      nome: data?.nome!,
+      cargo: data?.cargo?.nome!,
+      infoCargo: data?.cargo!,
+      senha: data?.senha!,
+    };
+    return dataObj;
+  }
 
+  async infoUser(userId: any) {
+    const data = await prisma.venda.findMany({
+      where: {
+        id_funcionario: userId,
+        data: {
+          gte: new Date(new Date().setMonth(new Date().getMonth() - 6)),
+        },
+      },
+    });
     return data;
   }
 }

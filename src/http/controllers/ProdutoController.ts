@@ -42,12 +42,12 @@ class ProductController {
     res.status(statusCode).json({ data, error });
   }
 
-  async importXLS(_req: Request, res: Response) {
-    const repository = new PrismaRepository();
-    await repository.importXLS();
+  // async importXLS(_req: Request, res: Response) {
+  //   const repository = new PrismaRepository();
+  //   await repository.importXLS();
 
-    res.status(200);
-  }
+  //   res.status(200);
+  // }
 
   async findByProductForReposition(_req: Request, res: Response) {
     const repository = new PrismaRepository();

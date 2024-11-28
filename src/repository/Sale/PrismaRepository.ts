@@ -26,7 +26,6 @@ export class PrismaRepository implements ISaleRepository {
       if (!produto) {
         throw new Error(`Produto com ID ${id_produto} não encontrado.`);
       }
-
     }
 
     const venda = await prisma.venda.create({
@@ -40,11 +39,14 @@ export class PrismaRepository implements ISaleRepository {
     });
 
     for (const [id_produto, quantidade] of Object.entries(produtoQuantidades)) {
+      const valorVenda = sale.valores?.[id_produto] || 0;
+
       await prisma.vendaProduto.create({
         data: {
           id_venda: venda.id_venda,
           id_produto: id_produto,
           quantidade,
+          valor_venda: valorVenda,
         },
       });
 
@@ -88,6 +90,16 @@ export class PrismaRepository implements ISaleRepository {
       ...venda,
       nome_funcionario: venda.funcionario.nome,
       nome_cliente: venda.nome_cliente || "SEM IDENTIFICAÇÃO",
+      produtos: venda.produtos.map((vp) => ({
+        ...vp,
+        quantidade: vp.quantidade,
+        valor_venda: vp.valor_venda ?? 0,
+        preco: vp.valor_venda ? vp.valor_venda : vp.produto.preco,
+        produto: {
+          ...vp.produto,
+          preco: vp.valor_venda !== 0 ? vp.valor_venda : vp.produto.preco,
+        },
+      })),
       funcionario: undefined,
     }));
 

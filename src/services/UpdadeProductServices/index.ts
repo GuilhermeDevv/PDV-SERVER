@@ -10,6 +10,7 @@ interface IExecute {
   estoque: number;
   descricao: string;
   isOnline: boolean;
+  desconto: number;
 }
 
 export class UpdateProductServices {
@@ -24,6 +25,7 @@ export class UpdateProductServices {
     estoque,
     descricao,
     isOnline,
+    desconto,
   }: IExecute) {
     const schema = z
       .object({
@@ -35,6 +37,7 @@ export class UpdateProductServices {
         estoque: z.number(),
         descricao: z.string(),
         isOnline: z.boolean(),
+        desconto: z.number(),
       })
       .partial({
         id: true,
@@ -45,6 +48,7 @@ export class UpdateProductServices {
         estoque: true,
         descricao: true,
         isOnline: true,
+        desconto: true,
       });
 
     const isValid = schema.safeParse({
@@ -74,6 +78,7 @@ export class UpdateProductServices {
         estoque,
         descricao,
         isOnline,
+        desconto,
       });
 
       if (data) {

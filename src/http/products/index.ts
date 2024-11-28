@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import ProductController from "../controllers/ProdutoController";
+import CategoriaProdutoController from "../controllers/CategoriaProdutoController";
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.put("/:id", ProductController.updateProduct);
 
 router.get("/reposition", ProductController.findByProductForReposition);
 
-router.get("/import", ProductController.importXLS);
+router.post("/categoria", CategoriaProdutoController.createCategoriaProduto);
+router.get("/categorias", CategoriaProdutoController.getAllCategorias);
 
 export { router as productRouter };
